@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Desk — Stock &amp; Fund Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="brand">
+      <span class="brand-mark">◆</span>
+      <span class="brand-name">The Desk</span>
+    </div>
+    <div class="masthead-tag">Position &amp; probability, not predictions</div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <h1 class="hero-title">Run the numbers<br>before you commit.</h1>
+    <p class="hero-sub">Type a stock ticker or mutual fund name. Get a scored signal, and every reason behind it.</p>
+
+    <form id="search-form" class="search-panel" autocomplete="off">
+      <div class="mode-toggle" role="tablist" aria-label="Analysis type">
+        <button type="button" class="mode-btn active" data-mode="stock" role="tab" aria-selected="true">Stock</button>
+        <button type="button" class="mode-btn" data-mode="fund" role="tab" aria-selected="false">Mutual Fund</button>
+      </div>
+      <div class="search-row">
+        <input type="text" id="search-input" class="search-input" placeholder="TCS · RELIANCE · INFY" aria-label="Stock ticker or fund name">
+        <button type="submit" class="search-btn">Analyze</button>
+      </div>
+      <label class="demo-toggle">
+        <input type="checkbox" id="demo-checkbox" checked>
+        <span>Demo mode <em>(synthetic data — no live market connection needed)</em></span>
+      </label>
+    </form>
+  </section>
+
+  <section id="status" class="status" hidden></section>
+
+  <section id="result" class="result" hidden>
+
+    <div class="dossier">
+      <div class="dossier-header">
+        <div>
+          <p class="dossier-eyebrow" id="result-eyebrow">Ticker</p>
+          <h2 class="dossier-name" id="result-name">—</h2>
+        </div>
+        <div class="signal-chip" id="signal-chip">
+          <span id="signal-text">—</span>
+        </div>
+      </div>
+
+      <div class="dossier-body">
+        <div class="gauge-panel">
+          <svg id="gauge" viewBox="0 0 240 150" class="gauge-svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#B5432F" />
+                <stop offset="50%" stop-color="#C89B3C" />
+                <stop offset="100%" stop-color="#7C9070" />
+              </linearGradient>
+            </defs>
+            <path id="gauge-track" d="" />
+            <path id="gauge-fill" d="" />
+            <line id="gauge-needle" x1="120" y1="130" x2="120" y2="40" />
+            <circle cx="120" cy="130" r="7" class="gauge-hub" />
+          </svg>
+          <div class="gauge-score">
+            <span id="gauge-score-value">—</span>
+            <span class="gauge-score-label">/ 100</span>
+          </div>
+          <div class="gauge-sub-scores" id="gauge-sub-scores"></div>
+        </div>
+
+        <div class="metrics-strip" id="metrics-strip"></div>
+      </div>
+    </div>
+
+    <div class="ledger-grid" id="ledger-grid"></div>
+
+    <p class="disclaimer" id="disclaimer"></p>
+  </section>
+
+  <section id="empty-state" class="empty-state">
+    <p>No dossier open yet. Search a stock or fund above — try flipping demo mode off once you've wired up live data.</p>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <p>Rule-based, educational analysis. Not investment advice. Not reviewed by a SEBI Registered Investment Advisor.</p>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
