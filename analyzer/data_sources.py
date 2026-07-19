@@ -155,3 +155,40 @@ def resolve_mutual_fund(name: str) -> MutualFundData:
         raise ValueError(f"No mutual fund found matching '{name}'")
     best_match = results[0]
     return fetch_mutual_fund_data(best_match["schemeCode"])
+
+
+# ---------------------------------------------------------------------------
+# NEWS (via yfinance - no separate news API key needed)
+# ---------------------------------------------------------------------------
+
+def fetch_stock_news(ticker: str, limit: int = 10) -> list:
+    """
+    Pulls recent headlines from yfinance's built-in news feed. This
+    piggybacks on the Yahoo Finance data we already fetch prices from,
+    so it needs no separate API key or paid news service - the
+    tradeoff is coverage can be thin for smaller Indian names.
+
+    Returns a list of {title, publisher, link, published_ts} dicts.
+    """
+    resolved = resolve_indian_ticker(ticker)
+    yf_ticker = yf.Ticker(resolved)
+
+    try:
+        raw = yf_ticker.news or []
+    except Exception:
+        raw = []
+
+    items = []
+    for entry in raw[:limit]:
+        # yfinance's news schema has shifted over versions; read defensively
+        content = entry.get("content", entry)
+        title = content.get("title") or entry.get("title")
+        provider = content.get("provider")
+        publisher = provider.get("displayName") if isinstance(provider, dict) else entry.get("publisher")
+        canonical = content.get("canonicalUrl")
+        link = canonical.get("url") if isinstance(canonical, dict) else entry.get("link")
+        published = content.get("pubDate") or entry.get("providerPublishTime")
+        if title:
+            items.append({"title": title, "publisher": publisher, "link": link, "published": published})
+
+    return items

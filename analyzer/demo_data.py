@@ -104,3 +104,79 @@ def demo_fund_meta(name: str) -> dict:
         "expense_ratio": round(float(rng.uniform(0.3, 1.8)), 2),
         "aum_crore": round(float(rng.uniform(200, 90000)), 0),
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 2/4 additions: demo growth metrics, business summary, and news
+# ---------------------------------------------------------------------------
+
+def demo_growth_metrics(name: str) -> dict:
+    seed = _seed_from_name(name)
+    rng = np.random.default_rng(seed + 4)
+    return {
+        "revenue_cagr": round(float(rng.uniform(-5, 25)), 2),
+        "profit_cagr": round(float(rng.uniform(-10, 30)), 2),
+        "years_of_data": 4,
+    }
+
+
+def demo_business_summary(name: str) -> str:
+    seed = _seed_from_name(name)
+    rng = np.random.default_rng(seed + 5)
+    templates = [
+        "{n} designs, manufactures, and sells products across its core markets, "
+        "serving both domestic and export customers through a network of "
+        "distributors and direct sales channels.",
+        "{n} operates primarily in services, offering solutions to enterprise "
+        "and retail customers, with a growing focus on digital delivery channels.",
+        "{n} is engaged in the production and distribution of goods for "
+        "industrial and consumer markets, with operations spanning several "
+        "manufacturing facilities.",
+    ]
+    template = templates[seed % len(templates)]
+    return "[DEMO DATA] " + template.format(n=name.strip().title())
+
+
+_HEADLINE_TEMPLATES_POSITIVE = [
+    "{n} reports strong quarterly profit growth, beats estimates",
+    "{n} shares rally after upgrade from brokerage firm",
+    "{n} announces buyback, board approves dividend increase",
+    "{n} expands into new markets, wins large export order",
+]
+_HEADLINE_TEMPLATES_NEGATIVE = [
+    "{n} shares fall after quarterly results miss expectations",
+    "{n} faces regulatory probe over compliance concerns",
+    "Brokerage downgrades {n} citing valuation risk",
+    "{n} warns of margin pressure amid rising input costs",
+]
+_HEADLINE_TEMPLATES_NEUTRAL = [
+    "{n} to announce quarterly results next week",
+    "{n} appoints new independent director to the board",
+    "{n} completes previously announced facility expansion",
+    "Analysts maintain hold rating on {n} ahead of earnings",
+]
+
+
+def demo_stock_news(name: str, limit: int = 6) -> list:
+    seed = _seed_from_name(name)
+    rng = np.random.default_rng(seed + 6)
+    display_name = name.strip().title()
+
+    pool = (
+        [(t, "positive") for t in _HEADLINE_TEMPLATES_POSITIVE]
+        + [(t, "negative") for t in _HEADLINE_TEMPLATES_NEGATIVE]
+        + [(t, "neutral") for t in _HEADLINE_TEMPLATES_NEUTRAL]
+    )
+    rng.shuffle(pool)
+
+    now = pd.Timestamp.today()
+    items = []
+    for i, (template, _bias) in enumerate(pool[:limit]):
+        days_ago = int(rng.integers(0, 14))
+        items.append({
+            "title": "[DEMO] " + template.format(n=display_name),
+            "publisher": "Demo Financial Wire",
+            "link": None,
+            "published": int((now - pd.Timedelta(days=days_ago)).timestamp()),
+        })
+    return items

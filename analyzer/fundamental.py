@@ -60,7 +60,71 @@ def extract_stock_fundamentals(info: dict) -> dict:
         "target_mean_price": g("targetMeanPrice"),
         "recommendation_key": g("recommendationKey"),  # yfinance's own analyst-consensus tag
         "number_of_analyst_opinions": g("numberOfAnalystOpinions"),
+
+        # ---- Phase 2 additions ----
+        "business_summary": g("longBusinessSummary"),
+        "full_time_employees": g("fullTimeEmployees"),
+        "website": g("website"),
+        "city": g("city"),
+        "country": g("country"),
+        "ev_to_revenue_alt": g("enterpriseToRevenue"),
+        "price_to_sales": g("priceToSalesTrailing12Months"),
+        "book_value_per_share": g("bookValue"),
+        "next_earnings_date": _extract_earnings_date(info),
     }
+
+
+def _extract_earnings_date(info: dict):
+    """yfinance sometimes returns earnings date as a list of timestamps."""
+    val = info.get("earningsTimestampStart") or info.get("earningsTimestamp")
+    if val is None:
+        return None
+    try:
+        import datetime
+        return datetime.datetime.utcfromtimestamp(val).strftime("%Y-%m-%d")
+    except Exception:
+        return None
+
+
+def compute_growth_metrics(financials) -> dict:
+    """
+    Computes multi-year revenue/profit CAGR from yfinance's `financials`
+    DataFrame (columns = period-end dates, most recent first; rows =
+    line items like 'Total Revenue', 'Net Income').
+
+    LIMITATION: yfinance typically only returns ~4 years of annual
+    financials, and coverage for Indian (NSE/BSE) stocks is often
+    thinner than for US stocks - some rows may simply be missing.
+    Returns None for any metric it can't compute rather than guessing.
+    """
+    result = {"revenue_cagr": None, "profit_cagr": None, "years_of_data": 0}
+
+    if financials is None or financials.empty:
+        return result
+
+    try:
+        cols = sorted(financials.columns)  # oldest -> newest
+        years = len(cols)
+        result["years_of_data"] = years
+        if years < 2:
+            return result
+
+        oldest_col, newest_col = cols[0], cols[-1]
+        n_years = (newest_col - oldest_col).days / 365.25
+        if n_years <= 0:
+            return result
+
+        for row_name, out_key in [("Total Revenue", "revenue_cagr"), ("Net Income", "profit_cagr")]:
+            if row_name in financials.index:
+                old_val = financials.loc[row_name, oldest_col]
+                new_val = financials.loc[row_name, newest_col]
+                if old_val and new_val and old_val > 0 and new_val > 0:
+                    cagr = ((new_val / old_val) ** (1 / n_years) - 1) * 100
+                    result[out_key] = round(float(cagr), 2)
+    except Exception:
+        pass  # leave as None rather than guessing on unexpected data shapes
+
+    return result
 
 
 def extract_fund_fundamentals(mf_meta: dict, expense_ratio: float = None,

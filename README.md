@@ -38,7 +38,25 @@ options are:
 This app has **no login/auth** — anyone with the URL can use it. Fine
 for a small trusted friend group; add basic auth before sharing further.
 
-## Making it a real website (public URL, not just localhost)
+## Phase 1 — what's new (July 2026 update)
+
+The stock view is now a **tabbed dossier** instead of one long page:
+
+- **Overview** — AI Rating Card (stars, recommendation, confidence, risk, expected return range, time horizon), a rule-based AI summary paragraph, and key snapshot data
+- **Technical** — the score gauge plus trend/market structure, moving averages (EMA 9/20/50/100/200, SMA 20/50/200, golden/death cross), momentum (RSI, Stochastic RSI, MACD, ROC, CCI, Williams %R, ADX/+DI/-DI), volatility (ATR, ATR%, Bollinger width, Keltner Channel, historical volatility), volume (OBV trend, rolling VWAP, MFI, CMF), support/resistance + pivot points + Fibonacci levels, and detected candlestick patterns (Doji, Hammer, Engulfing, Morning/Evening Star, etc.)
+- **Fundamental** — expanded ratio grid + the existing ledger
+- **Risk** — Low/Medium/High/Very High labels across Financial, Valuation, Business, Volatility, and Liquidity risk, each with real reasons. Governance/Regulatory/Macro risk are honestly marked **"Not Assessed"** rather than guessed — we don't have data feeds for those yet
+- **AI Decision** — bull/bear/base case, why-buy/why-avoid (only real reasons, never padded to hit a round number), a bullish/neutral/bearish probability bar, and invalidation criteria
+
+Plus a **dark/light mode toggle** (top right, persisted across visits).
+
+**Important honesty note:** the "AI Summary" and "AI Decision" content is **not a live LLM call** — it's natural-language generation templated directly from the real computed scores (see `analyzer/ai_summary.py`). It reads like AI-generated prose because the sentence structure is templated, but every number in it was actually computed, never invented. A real LLM-backed version is a Phase 4 item (needs an Anthropic API key wired into the server).
+
+New files: `analyzer/patterns.py` (candlestick detection), `analyzer/risk.py` (risk scoring), `analyzer/ai_summary.py` (rating card + narrative generation). `analyzer/technical.py` was significantly expanded but all original fields are unchanged, so nothing downstream broke.
+
+---
+
+
 
 Right now `python server.py` only serves `http://localhost:8000` — reachable
 from your own machine only. To turn it into a normal website with a URL you
@@ -137,6 +155,37 @@ for demo mode (numpy/pandas). Live mode additionally needs `requests`
 and `yfinance`. If this grows past a friend-group tool, migrating
 `server.py`'s two route handlers into FastAPI is a quick, low-risk
 change since none of the actual analysis logic lives in that file.
+
+## Phase 2, 3 & 4 — what's new (this update)
+
+### Phase 2 — Deeper Fundamentals + Strategy tabs
+- **Fundamental tab** now shows a business overview, multi-year Revenue/Profit CAGR (computed from yfinance's financial statements in live mode), employee count, and next earnings date.
+- New **Strategy tab** with four sub-tabs, all built by reorganizing data you already have — no new data source:
+  - **Intraday** — honestly framed as a *daily-bar-derived approximation* (expected range from ATR, pivot levels), not real tick data. A clear note in the UI explains this limitation rather than pretending to have real-time granularity.
+  - **Short-Term (0-30d)** — entry zones, stop loss, three targets, risk/reward ratio, swing probability.
+  - **Mid-Term (1-6mo)** — trend/valuation read, rough expected return, portfolio allocation guidance.
+  - **Long-Term (6mo+)** — business quality label, a simplified (explicitly-labeled-as-not-a-real-DCF) intrinsic value sanity check, and mechanical growth extrapolation with a caveat that real growth rates don't stay constant for a decade.
+
+### Phase 3 — Watchlist + Accounts
+- Full account system: register/login/logout with hashed passwords (PBKDF2-SHA256, stdlib only) and session cookies.
+- Watchlist: star any stock/fund result to save it; manage your list from the new **Watchlist** page (top nav).
+- Alerts: set price/RSI thresholds; check them on demand from the Watchlist page. **This is an in-app check, not a push notification or email** — there's no background job or notification service wired up, by design, since that needs infrastructure (a task scheduler + email/push credentials) this build doesn't have.
+- **Read this before relying on it:** all of this is stored in a local SQLite file (`data.db`). On Render's free tier, the filesystem resets on every redeploy and periodically on restarts — so watchlists/accounts *will* disappear unexpectedly on the free tier. Fine for trying it out; for anything you want to keep, either upgrade to a Render paid plan with a persistent disk, or migrate to a hosted database (Render/Railway/Supabase all have free Postgres tiers — would need swapping `analyzer/db.py`'s queries, which is the only file that would need to change).
+
+### Phase 4a — News (no new API key needed)
+- Reuses yfinance's built-in news feed (the same connection already used for prices), so no separate news API signup required.
+- Headlines get a simple keyword-based sentiment tag (Positive/Negative/Neutral) — transparent and inspectable, not a trained model or paid sentiment API. Treat it as a rough at-a-glance signal.
+
+### Phase 4b — AI Chat Assistant
+- A floating chat widget on every page, wired to a real Claude API call (`POST /api/chat` in `server.py`).
+- **Requires you to set an `ANTHROPIC_API_KEY` environment variable** on your server (Render → your service → Environment tab) — get one at console.anthropic.com. Without it, the chat clearly says it isn't configured rather than failing silently.
+- **Important honesty note:** this endpoint was written correctly against Anthropic's documented API shape, but the environment this was built in has no internet access and no API key, so **it has not been tested end-to-end**. Test it yourself after deploying with a real key before relying on it — if something's off, the fix is almost certainly in `call_claude_chat()` in `server.py`.
+
+### Bug fixes found during this update
+- Fixed a logic bug in the Short-Term strategy view where Target 3 could come out lower than Target 2 on a Long trade (backwards) — it now always extends further than Target 2 in the trade's direction.
+- Fixed a CSS bug where the login modal and chat panel had `display: flex` unconditionally, overriding the browser's default hidden-attribute behavior — this was silently blocking clicks on the search button underneath. Both are now properly hidden until opened.
+
+---
 
 ## API reference
 

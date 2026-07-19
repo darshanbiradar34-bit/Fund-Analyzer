@@ -7,3 +7,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.3
+      - key: ANTHROPIC_API_KEY
+        sync: false  # set this manually in Render's dashboard - don't commit real keys to git

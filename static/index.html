@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,11 +16,39 @@
       <span class="brand-mark">◆</span>
       <span class="brand-name">The Desk</span>
     </div>
-    <div class="masthead-tag">Position &amp; probability, not predictions</div>
+    <div class="masthead-right">
+      <span class="masthead-tag">Position &amp; probability, not predictions</span>
+      <button type="button" id="watchlist-nav-btn" class="theme-toggle watchlist-nav-btn" title="Watchlist &amp; Alerts">☆ Watchlist</button>
+      <div id="account-area" class="account-area">
+        <button type="button" id="account-btn" class="theme-toggle account-btn">Sign in</button>
+      </div>
+      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle light/dark mode" title="Toggle light/dark mode">
+        <span id="theme-toggle-icon">☾</span>
+      </button>
+    </div>
   </div>
 </header>
 
+<!-- ============ AUTH PANEL (login/register) ============ -->
+<div id="auth-overlay" class="auth-overlay" hidden>
+  <div class="auth-panel">
+    <button type="button" id="auth-close" class="auth-close" aria-label="Close">×</button>
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab active" data-authtab="login">Sign In</button>
+      <button type="button" class="auth-tab" data-authtab="register">Create Account</button>
+    </div>
+    <form id="auth-form">
+      <input type="text" id="auth-username" placeholder="Username" autocomplete="username" required>
+      <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit" class="search-btn" id="auth-submit-btn" style="width:100%">Sign In</button>
+      <p class="auth-error" id="auth-error" hidden></p>
+    </form>
+    <p class="auth-note">Accounts are stored on this server for your friend group only. Not for storing sensitive financial info — this is a hobby tool, not a bank.</p>
+  </div>
+</div>
+
 <main>
+<div id="search-view">
   <section class="hero">
     <h1 class="hero-title">Run the numbers<br>before you commit.</h1>
     <p class="hero-sub">Type a stock ticker or mutual fund name. Get a scored signal, and every reason behind it.</p>
@@ -43,20 +71,45 @@
 
   <section id="status" class="status" hidden></section>
 
-  <section id="result" class="result" hidden>
+  <!-- ============ STOCK RESULT: tabbed dossier ============ -->
+  <section id="stock-result" class="result" hidden>
 
-    <div class="dossier">
-      <div class="dossier-header">
-        <div>
-          <p class="dossier-eyebrow" id="result-eyebrow">Ticker</p>
-          <h2 class="dossier-name" id="result-name">—</h2>
-        </div>
-        <div class="signal-chip" id="signal-chip">
-          <span id="signal-text">—</span>
+    <div class="stock-dossier-header">
+      <div>
+        <p class="dossier-eyebrow" id="stock-eyebrow">Ticker</p>
+        <h2 class="dossier-name" id="stock-name">—</h2>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="watch-star-btn" id="stock-watch-btn" title="Add to Watchlist">☆</button>
+        <div class="signal-chip" id="stock-signal-chip">
+          <span id="stock-signal-text">—</span>
         </div>
       </div>
+    </div>
 
-      <div class="dossier-body">
+    <nav class="tab-nav" id="tab-nav" role="tablist" aria-label="Analysis sections">
+      <button type="button" class="tab-btn active" data-tab="overview" role="tab" aria-selected="true">Overview</button>
+      <button type="button" class="tab-btn" data-tab="technical" role="tab" aria-selected="false">Technical</button>
+      <button type="button" class="tab-btn" data-tab="fundamental" role="tab" aria-selected="false">Fundamental</button>
+      <button type="button" class="tab-btn" data-tab="risk" role="tab" aria-selected="false">Risk</button>
+      <button type="button" class="tab-btn" data-tab="ai-decision" role="tab" aria-selected="false">AI Decision</button>
+      <button type="button" class="tab-btn" data-tab="strategy" role="tab" aria-selected="false">Strategy</button>
+      <button type="button" class="tab-btn" data-tab="news" role="tab" aria-selected="false">News</button>
+    </nav>
+
+    <!-- ---- OVERVIEW ---- -->
+    <div class="tab-panel active" id="panel-overview" role="tabpanel">
+      <div class="rating-card" id="rating-card"></div>
+      <div class="ai-summary-box" id="ai-summary-box"></div>
+      <div class="section-block">
+        <h3 class="section-title">Key Data</h3>
+        <div class="metrics-strip" id="overview-metrics"></div>
+      </div>
+    </div>
+
+    <!-- ---- TECHNICAL ---- -->
+    <div class="tab-panel" id="panel-technical" role="tabpanel">
+      <div class="dossier gauge-dossier">
         <div class="gauge-panel">
           <svg id="gauge" viewBox="0 0 240 150" class="gauge-svg" aria-hidden="true">
             <defs>
@@ -67,7 +120,6 @@
               </linearGradient>
             </defs>
             <path id="gauge-track" d="" />
-            <path id="gauge-fill" d="" />
             <line id="gauge-needle" x1="120" y1="130" x2="120" y2="40" />
             <circle cx="120" cy="130" r="7" class="gauge-hub" />
           </svg>
@@ -77,18 +129,239 @@
           </div>
           <div class="gauge-sub-scores" id="gauge-sub-scores"></div>
         </div>
+        <div class="metrics-strip" id="technical-headline-metrics"></div>
+      </div>
 
-        <div class="metrics-strip" id="metrics-strip"></div>
+      <div class="section-block">
+        <h3 class="section-title">Trend &amp; Market Structure</h3>
+        <div class="metrics-strip" id="trend-metrics"></div>
+      </div>
+
+      <div class="section-block">
+        <h3 class="section-title">Moving Averages</h3>
+        <div class="metrics-strip" id="ma-metrics"></div>
+      </div>
+
+      <div class="section-block">
+        <h3 class="section-title">Momentum</h3>
+        <div class="metrics-strip" id="momentum-metrics"></div>
+      </div>
+
+      <div class="section-block">
+        <h3 class="section-title">Volatility</h3>
+        <div class="metrics-strip" id="volatility-metrics"></div>
+      </div>
+
+      <div class="section-block">
+        <h3 class="section-title">Volume</h3>
+        <div class="metrics-strip" id="volume-metrics"></div>
+        <p class="footnote">"VWAP" here is a rolling 20-day volume-weighted average, a daily proxy — not intraday session VWAP.</p>
+      </div>
+
+      <div class="section-block">
+        <h3 class="section-title">Support, Resistance &amp; Fibonacci</h3>
+        <div class="metrics-strip" id="sr-metrics"></div>
+        <div class="fib-row" id="fib-row"></div>
+      </div>
+
+      <div class="section-block">
+        <h3 class="section-title">Candlestick Patterns Detected</h3>
+        <div class="pattern-chips" id="pattern-chips"></div>
+      </div>
+
+      <div class="ledger-grid" id="technical-ledger-grid"></div>
+    </div>
+
+    <!-- ---- FUNDAMENTAL ---- -->
+    <div class="tab-panel" id="panel-fundamental" role="tabpanel">
+      <div class="section-block" id="business-summary-block">
+        <h3 class="section-title">Business Overview</h3>
+        <p id="business-summary-text" class="business-summary-text"></p>
+      </div>
+
+      <div class="section-block">
+        <h3 class="section-title">Growth (Multi-Year)</h3>
+        <div class="metrics-strip" id="growth-metrics"></div>
+      </div>
+
+      <div class="section-block">
+        <h3 class="section-title">Key Ratios</h3>
+        <div class="metrics-strip" id="fundamental-metrics"></div>
+      </div>
+      <div class="ledger-grid" id="fundamental-ledger-grid"></div>
+    </div>
+
+    <!-- ---- RISK ---- -->
+    <div class="tab-panel" id="panel-risk" role="tabpanel">
+      <div class="risk-overall" id="risk-overall"></div>
+      <div class="risk-grid" id="risk-grid"></div>
+    </div>
+
+    <!-- ---- AI DECISION ---- -->
+    <div class="tab-panel" id="panel-ai-decision" role="tabpanel">
+      <p class="engine-note" id="engine-note"></p>
+
+      <div class="probability-bar-wrap">
+        <h3 class="section-title">Bullish / Neutral / Bearish Probability</h3>
+        <div class="probability-bar" id="probability-bar"></div>
+        <div class="probability-legend" id="probability-legend"></div>
+      </div>
+
+      <div class="case-grid">
+        <div class="case-card bull">
+          <h4>Bull Case</h4>
+          <ul id="bull-case-list"></ul>
+        </div>
+        <div class="case-card bear">
+          <h4>Bear Case</h4>
+          <ul id="bear-case-list"></ul>
+        </div>
+        <div class="case-card base">
+          <h4>Base Case</h4>
+          <ul id="base-case-list"></ul>
+        </div>
+      </div>
+
+      <div class="reason-grid">
+        <div class="reason-col why-buy">
+          <h4>Why Buy</h4>
+          <ul id="why-buy-list"></ul>
+        </div>
+        <div class="reason-col why-avoid">
+          <h4>Why Avoid</h4>
+          <ul id="why-avoid-list"></ul>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <h3 class="section-title">Invalidation Criteria</h3>
+        <ul class="invalidation-list" id="invalidation-list"></ul>
       </div>
     </div>
 
-    <div class="ledger-grid" id="ledger-grid"></div>
+    <!-- ---- STRATEGY ---- -->
+    <div class="tab-panel" id="panel-strategy" role="tabpanel">
+      <nav class="subtab-nav" id="strategy-subtab-nav">
+        <button type="button" class="subtab-btn active" data-subtab="intraday">Intraday</button>
+        <button type="button" class="subtab-btn" data-subtab="short-term">Short-Term (0-30d)</button>
+        <button type="button" class="subtab-btn" data-subtab="mid-term">Mid-Term (1-6mo)</button>
+        <button type="button" class="subtab-btn" data-subtab="long-term">Long-Term (6mo+)</button>
+      </nav>
 
-    <p class="disclaimer" id="disclaimer"></p>
+      <div class="subtab-panel active" id="subpanel-intraday">
+        <p class="footnote" id="intraday-limitation"></p>
+        <div class="metrics-strip" id="intraday-metrics"></div>
+      </div>
+
+      <div class="subtab-panel" id="subpanel-short-term">
+        <div class="metrics-strip" id="short-term-metrics"></div>
+      </div>
+
+      <div class="subtab-panel" id="subpanel-mid-term">
+        <div class="metrics-strip" id="mid-term-metrics"></div>
+      </div>
+
+      <div class="subtab-panel" id="subpanel-long-term">
+        <div class="metrics-strip" id="long-term-metrics"></div>
+        <p class="footnote" id="long-term-intrinsic-note"></p>
+      </div>
+    </div>
+
+    <!-- ---- NEWS ---- -->
+    <div class="tab-panel" id="panel-news" role="tabpanel">
+      <p class="footnote">Headlines pulled from Yahoo Finance's news feed for this ticker. Sentiment tags are a simple keyword-based heuristic, not a trained NLP model — treat as a rough at-a-glance signal only.</p>
+      <div id="news-list" class="news-list"></div>
+    </div>
+
+    <p class="disclaimer" id="stock-disclaimer"></p>
+  </section>
+
+  <!-- ============ FUND RESULT: simple dossier (unchanged from Phase 0) ============ -->
+  <section id="fund-result" class="result" hidden>
+    <div class="dossier">
+      <div class="dossier-header">
+        <div>
+          <p class="dossier-eyebrow">Mutual Fund</p>
+          <h2 class="dossier-name" id="fund-name">—</h2>
+        </div>
+        <div class="header-actions">
+          <button type="button" class="watch-star-btn" id="fund-watch-btn" title="Add to Watchlist">☆</button>
+          <div class="signal-chip" id="fund-signal-chip">
+            <span id="fund-signal-text">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dossier-body">
+        <div class="gauge-panel">
+          <svg id="fund-gauge" viewBox="0 0 240 150" class="gauge-svg" aria-hidden="true">
+            <path id="fund-gauge-track" d="" />
+            <line id="fund-gauge-needle" x1="120" y1="130" x2="120" y2="40" />
+            <circle cx="120" cy="130" r="7" class="gauge-hub" />
+          </svg>
+          <div class="gauge-score">
+            <span id="fund-gauge-score-value">—</span>
+            <span class="gauge-score-label">/ 100</span>
+          </div>
+          <div class="gauge-sub-scores" id="fund-gauge-sub-scores"></div>
+        </div>
+        <div class="metrics-strip" id="fund-metrics"></div>
+      </div>
+    </div>
+
+    <div class="ledger-grid" id="fund-ledger-grid"></div>
+
+    <p class="disclaimer" id="fund-disclaimer"></p>
   </section>
 
   <section id="empty-state" class="empty-state">
     <p>No dossier open yet. Search a stock or fund above — try flipping demo mode off once you've wired up live data.</p>
+  </section>
+</div>
+
+  <!-- ============ WATCHLIST VIEW (separate from search results) ============ -->
+  <section id="watchlist-view" hidden>
+    <div class="watchlist-header">
+      <h2 class="hero-title" style="font-size: 32px;">Your Watchlist</h2>
+      <button type="button" id="watchlist-back-btn" class="theme-toggle">← Back to Search</button>
+    </div>
+
+    <p class="footnote" id="watchlist-db-note">Data persists in a local database on the server — see the README for an important note about free-tier hosting resetting this periodically.</p>
+
+    <div id="watchlist-signed-out" hidden>
+      <p>Sign in or create an account to build a watchlist and set alerts.</p>
+      <button type="button" class="search-btn" id="watchlist-signin-btn">Sign In / Create Account</button>
+    </div>
+
+    <div id="watchlist-signed-in" hidden>
+      <div class="section-block">
+        <h3 class="section-title">Watchlist</h3>
+        <div id="watchlist-table"></div>
+      </div>
+
+      <div class="section-block">
+        <h3 class="section-title">Alerts</h3>
+        <form id="alert-form" class="alert-form">
+          <input type="text" id="alert-symbol" placeholder="Symbol (e.g. TCS)" required>
+          <select id="alert-item-type">
+            <option value="stock">Stock</option>
+            <option value="fund">Fund</option>
+          </select>
+          <select id="alert-condition">
+            <option value="price_above">Price Above</option>
+            <option value="price_below">Price Below</option>
+            <option value="rsi_above">RSI Above</option>
+            <option value="rsi_below">RSI Below</option>
+          </select>
+          <input type="number" id="alert-threshold" placeholder="Threshold" step="0.01" required>
+          <button type="submit" class="search-btn">Add Alert</button>
+        </form>
+        <div id="alerts-table"></div>
+        <button type="button" class="search-btn" id="check-alerts-btn" style="margin-top:14px">Check Alerts Now</button>
+        <p class="footnote">Alerts are checked on demand when you click the button above (or reload this page) — this app doesn't send push notifications or emails, it's an in-app check only.</p>
+        <div id="alerts-triggered-result"></div>
+      </div>
+    </div>
   </section>
 </main>
 
