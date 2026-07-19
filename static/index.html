@@ -6,6 +6,7 @@
 <title>The Desk — Stock &amp; Fund Analysis</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -89,6 +90,7 @@
 
     <nav class="tab-nav" id="tab-nav" role="tablist" aria-label="Analysis sections">
       <button type="button" class="tab-btn active" data-tab="overview" role="tab" aria-selected="true">Overview</button>
+      <button type="button" class="tab-btn" data-tab="chart" role="tab" aria-selected="false">Chart</button>
       <button type="button" class="tab-btn" data-tab="technical" role="tab" aria-selected="false">Technical</button>
       <button type="button" class="tab-btn" data-tab="fundamental" role="tab" aria-selected="false">Fundamental</button>
       <button type="button" class="tab-btn" data-tab="risk" role="tab" aria-selected="false">Risk</button>
@@ -105,6 +107,29 @@
         <h3 class="section-title">Key Data</h3>
         <div class="metrics-strip" id="overview-metrics"></div>
       </div>
+    </div>
+
+    <!-- ---- CHART ---- -->
+    <div class="tab-panel" id="panel-chart" role="tabpanel">
+      <div class="chart-toolbar">
+        <div class="chart-range-group" id="chart-range-group">
+          <button type="button" class="chart-range-btn" data-range="1mo">1M</button>
+          <button type="button" class="chart-range-btn" data-range="3mo">3M</button>
+          <button type="button" class="chart-range-btn active" data-range="6mo">6M</button>
+          <button type="button" class="chart-range-btn" data-range="1y">1Y</button>
+          <button type="button" class="chart-range-btn" data-range="2y">2Y</button>
+        </div>
+        <div class="chart-toolbar-right">
+          <span id="market-status-badge" class="market-status-badge">—</span>
+          <label class="live-toggle">
+            <input type="checkbox" id="live-toggle-checkbox">
+            <span>Live (during market hours)</span>
+          </label>
+        </div>
+      </div>
+      <p class="footnote" id="chart-data-note"></p>
+      <div id="candlestick-chart" class="candlestick-chart-container"></div>
+      <div class="chart-legend" id="chart-legend"></div>
     </div>
 
     <!-- ---- TECHNICAL ---- -->

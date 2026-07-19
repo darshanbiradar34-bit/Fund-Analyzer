@@ -59,6 +59,7 @@ from analyzer.risk import assess_stock_risk
 from analyzer.ai_summary import build_stock_ai_summary
 from analyzer.strategy import build_all_strategies
 from analyzer.sentiment import score_headline
+from analyzer.chart import build_chart_payload
 from analyzer import demo_data
 from analyzer import db
 
@@ -169,9 +170,72 @@ def run_fund_analysis(name: str, demo: bool) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Alert evaluation (Phase 3) - checked on demand, not push/email notified.
-# See db.py + README for what "alerting" does and doesn't do here.
+# Chart data (Phase 5) - candlestick series + market hours check
 # ---------------------------------------------------------------------------
+
+import datetime
+
+IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+
+
+def get_market_status() -> dict:
+    """
+    NSE regular session: 9:15 AM - 3:30 PM IST, Monday-Friday.
+    Does NOT account for exchange holidays (Diwali, Republic Day, etc.)
+    - there's no holiday-calendar data source wired up, so this can say
+    "open" on a holiday. Flagged in the API response so the frontend
+    can caveat it rather than claim certainty it doesn't have.
+    """
+    now_ist = datetime.datetime.now(IST)
+    is_weekday = now_ist.weekday() < 5  # Mon=0 ... Sun=6
+    market_open_t = now_ist.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close_t = now_ist.replace(hour=15, minute=30, second=0, microsecond=0)
+    is_open = is_weekday and market_open_t <= now_ist <= market_close_t
+
+    return {
+        "is_open": is_open,
+        "current_time_ist": now_ist.strftime("%Y-%m-%d %H:%M:%S"),
+        "session_start_ist": "09:15",
+        "session_end_ist": "15:30",
+        "note": "Does not account for exchange holidays (no holiday calendar wired up).",
+    }
+
+
+def run_chart_analysis(name: str, demo: bool, period: str = "6mo") -> dict:
+    if demo:
+        history = demo_data.demo_price_series(name, period=period)
+    else:
+        from analyzer.data_sources import fetch_price_series
+        history = fetch_price_series(name, period=period, interval="1d")
+
+    payload = build_chart_payload(history)
+    payload["period"] = period
+    payload["demo"] = demo
+    payload["market_status"] = get_market_status()
+    return payload
+
+
+def run_intraday_chart_analysis(name: str, demo: bool, interval: str = "5m") -> dict:
+    market_status = get_market_status()
+
+    if demo:
+        history = demo_data.demo_intraday_series(name, interval=interval)
+    else:
+        from analyzer.data_sources import fetch_intraday_series
+        history = fetch_intraday_series(name, interval=interval)
+
+    payload = build_chart_payload(history, include_emas=(9, 20, 50))
+    payload["interval"] = interval
+    payload["demo"] = demo
+    payload["market_status"] = market_status
+    payload["data_delay_note"] = (
+        "Free Yahoo Finance intraday data is typically delayed ~15-20 minutes, "
+        "not true tick-by-tick real-time. Treat this as 'roughly live', not exact."
+    )
+    return payload
+
+
+
 
 def check_alerts_for_user(user_id: int, demo: bool) -> list:
     alerts = db.list_alerts(user_id)
@@ -424,6 +488,25 @@ class Handler(BaseHTTPRequestHandler):
                 if not name:
                     return self._send_json({"error": "Missing 'name' parameter"}, 400)
                 return self._send_json(run_fund_analysis(name, demo))
+
+            if path == "/api/chart/stock":
+                name = unquote(params.get("name", "")).strip()
+                demo = params.get("demo", "0") in ("1", "true", "True")
+                period = params.get("period", "6mo")
+                if not name:
+                    return self._send_json({"error": "Missing 'name' parameter"}, 400)
+                return self._send_json(run_chart_analysis(name, demo, period))
+
+            if path == "/api/chart/stock/intraday":
+                name = unquote(params.get("name", "")).strip()
+                demo = params.get("demo", "0") in ("1", "true", "True")
+                interval = params.get("interval", "5m")
+                if not name:
+                    return self._send_json({"error": "Missing 'name' parameter"}, 400)
+                return self._send_json(run_intraday_chart_analysis(name, demo, interval))
+
+            if path == "/api/market-status":
+                return self._send_json(get_market_status())
 
             if path == "/api/auth/me":
                 user_id = self._current_user_id()

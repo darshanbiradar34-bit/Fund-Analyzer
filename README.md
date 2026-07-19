@@ -187,16 +187,58 @@ change since none of the actual analysis logic lives in that file.
 
 ---
 
+## Phase 5 — Candlestick chart with live mode (this update)
+
+New **Chart tab** (right after Overview) with an interactive candlestick chart, powered by TradingView's [lightweight-charts](https://www.tradingview.com/lightweight-charts/) library, loaded from a CDN (`unpkg.com`) — **requires internet access in the browser** to load that script, same as the Google Fonts already in use.
+
+- Range selector (1M/3M/6M/1Y/2Y) for historical daily candles
+- EMA9/20/50/200 overlay lines (color-coded, matches the Technical tab's math)
+- Volume histogram overlaid at the bottom of the chart
+- A **Live** toggle for auto-refreshing intraday candles every 60 seconds, only enabled during NSE market hours (9:15 AM–3:30 PM IST, Mon-Fri)
+
+**Read this before calling it "live" to anyone:**
+- Free Yahoo Finance intraday data is typically **delayed ~15-20 minutes**, not tick-by-tick real-time. The UI says this directly under the chart whenever Live mode is on — please don't strip that disclaimer out if you customize the UI.
+- Market-hours detection **does not know about exchange holidays** (Diwali, Republic Day, etc.) — there's no holiday calendar wired up, so it can say "open" on a day the exchange is actually closed. Also flagged in the API response (`market_status.note`).
+- True real-time, tick-by-tick data needs a paid broker API (Zerodha Kite Connect, Upstox, Angel One SmartAPI) with its own account, subscription, and OAuth-style auth flow — a meaningfully bigger project than this. Worth doing later if you want genuinely live prices, not delayed ones.
+
+### Bug fixed during this phase
+Found and fixed a real timestamp bug in the chart data conversion: pandas 3.x changed its default datetime64 resolution, which silently broke the naive `.astype('int64') // 10**9` Unix-timestamp shortcut (candles were landing in 1970 instead of 2026). Replaced with a resolution-independent conversion and verified against known dates before shipping.
+
+---
+
+
+
 ## API reference
 
 ```
-GET /api/analyze/stock?name=TCS&demo=1
-GET /api/analyze/fund?name=Parag+Parikh+Flexi+Cap&demo=1
+GET  /api/analyze/stock?name=TCS&demo=1
+GET  /api/analyze/fund?name=Parag+Parikh+Flexi+Cap&demo=1
+GET  /api/chart/stock?name=TCS&demo=1&period=6mo
+GET  /api/chart/stock/intraday?name=TCS&demo=1&interval=5m
+GET  /api/market-status
+
+POST /api/auth/register     {username, password}
+POST /api/auth/login        {username, password}
+POST /api/auth/logout
+GET  /api/auth/me
+
+GET    /api/watchlist
+POST   /api/watchlist       {symbol, item_type, notes}
+DELETE /api/watchlist/{id}
+
+GET    /api/alerts
+POST   /api/alerts          {symbol, item_type, condition_type, threshold}
+DELETE /api/alerts/{id}
+POST   /api/alerts/check?demo=1
+
+POST /api/chat              {message, context}   (needs ANTHROPIC_API_KEY)
 ```
 
-Set `demo=0` (or omit it) for live data. Returns JSON with `fundamentals`,
-`technicals`, and `signal` (the score + reasons the frontend renders).
-Errors come back as `{"error": "..."}` with a 400/404/500 status.
+Set `demo=0` (or omit it) for live data. Analysis endpoints return JSON
+with `fundamentals`, `technicals`, `signal`, `risk`, `ai_summary`,
+`strategy`, and `news` (the score + reasons the frontend renders).
+Auth endpoints use an HttpOnly session cookie — no bearer tokens.
+Errors come back as `{"error": "..."}` with a 400/401/404/500 status.
 
 ---
 

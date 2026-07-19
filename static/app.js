@@ -253,6 +253,18 @@ function renderStock(data) {
   currentStockSymbolForWatchlist = data.ticker.replace(/\.(NS|BO|DEMO)$/i, "");
   updateWatchStarButton("stock-watch-btn", currentStockSymbolForWatchlist, "stock");
 
+  stopLivePolling();
+  liveToggleCheckbox.checked = false;
+  document.querySelector(".live-toggle").classList.remove("live-active");
+  currentChartSymbol = currentStockSymbolForWatchlist;
+  currentChartRange = "6mo";
+  document.querySelectorAll(".chart-range-btn").forEach((b) => b.classList.toggle("active", b.dataset.range === "6mo"));
+  // Only actually fetch chart data if the Chart tab is the active one on render;
+  // otherwise it loads lazily when the user clicks into that tab (see tab-nav listener).
+  if (document.getElementById("panel-chart").classList.contains("active")) {
+    loadDailyChart(currentChartSymbol, currentChartRange);
+  }
+
   document.getElementById("stock-disclaimer").textContent =
     "Rule-based, educational analysis" + (data.demo ? " using SYNTHETIC DEMO DATA (not real market data)" : "") +
     ". Not investment advice, and not reviewed by a SEBI Registered Investment Advisor. " +
@@ -978,4 +990,182 @@ chatPanel.querySelector("#chat-form").addEventListener("submit", async (e) => {
     thinkingMsg.className = "chat-msg error";
   }
   messagesEl.scrollTop = messagesEl.scrollHeight;
+});
+
+// ---------------------------------------------------------------------------
+// PHASE 5: Candlestick chart with EMA overlays, range selector, live mode
+// ---------------------------------------------------------------------------
+
+let priceChart = null;
+let candleSeries = null;
+let volumeSeries = null;
+let emaSeriesMap = {};
+let currentChartSymbol = null;
+let currentChartRange = "6mo";
+let liveIntervalHandle = null;
+
+const EMA_COLORS = { ema9: "#7C9070", ema20: "#C89B3C", ema50: "#B5432F", ema200: "#7C8B94" };
+
+function initChartIfNeeded() {
+  if (priceChart) return;
+  const container = document.getElementById("candlestick-chart");
+  if (!container || typeof LightweightCharts === "undefined") return;
+
+  const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+
+  priceChart = LightweightCharts.createChart(container, {
+    width: container.clientWidth,
+    height: container.clientHeight,
+    layout: {
+      background: { color: "transparent" },
+      textColor: isDark ? "#9AA7AE" : "#5B6167",
+    },
+    grid: {
+      vertLines: { color: isDark ? "rgba(237,230,216,0.06)" : "rgba(16,24,32,0.06)" },
+      horzLines: { color: isDark ? "rgba(237,230,216,0.06)" : "rgba(16,24,32,0.06)" },
+    },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: "rgba(124,139,148,0.3)" },
+    rightPriceScale: { borderColor: "rgba(124,139,148,0.3)" },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+  });
+
+  candleSeries = priceChart.addCandlestickSeries({
+    upColor: "#7C9070", downColor: "#B5432F",
+    borderUpColor: "#7C9070", borderDownColor: "#B5432F",
+    wickUpColor: "#7C9070", wickDownColor: "#B5432F",
+  });
+
+  volumeSeries = priceChart.addHistogramSeries({
+    priceFormat: { type: "volume" },
+    priceScaleId: "",
+    color: "#7C8B94",
+  });
+  volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+
+  window.addEventListener("resize", () => {
+    if (priceChart && container) {
+      priceChart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+    }
+  });
+}
+
+function renderChartData(payload) {
+  updateMarketStatusBadge(payload.market_status);
+
+  initChartIfNeeded();
+  if (!priceChart) {
+    document.getElementById("chart-data-note").textContent =
+      "Chart library failed to load (check your internet connection to unpkg.com).";
+    return;
+  }
+
+  candleSeries.setData(payload.candles);
+  volumeSeries.setData(payload.volume.map((v) => ({
+    time: v.time, value: v.value, color: v.color === "up" ? "rgba(124,144,112,0.5)" : "rgba(181,67,47,0.5)",
+  })));
+
+  // Clear old EMA series and redraw
+  Object.values(emaSeriesMap).forEach((s) => priceChart.removeSeries(s));
+  emaSeriesMap = {};
+  const legendParts = [];
+  Object.entries(payload.emas || {}).forEach(([key, points]) => {
+    const color = EMA_COLORS[key] || "#C89B3C";
+    const series = priceChart.addLineSeries({ color, lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false });
+    series.setData(points);
+    emaSeriesMap[key] = series;
+    legendParts.push(`<span><span class="legend-swatch" style="background:${color}"></span>${key.toUpperCase()}</span>`);
+  });
+  document.getElementById("chart-legend").innerHTML = legendParts.join("");
+
+  priceChart.timeScale().fitContent();
+
+  let note = payload.demo ? "Showing SYNTHETIC DEMO DATA, not real prices. " : "";
+  if (payload.interval) {
+    note += payload.data_delay_note || "";
+  } else {
+    note += "Daily candles.";
+  }
+  document.getElementById("chart-data-note").textContent = note;
+}
+
+function updateMarketStatusBadge(status) {
+  const badge = document.getElementById("market-status-badge");
+  if (!status) { badge.textContent = ""; return; }
+  badge.textContent = status.is_open ? "● Market Open (IST)" : "○ Market Closed (IST)";
+  badge.className = "market-status-badge " + (status.is_open ? "open" : "closed");
+}
+
+async function loadDailyChart(symbol, range) {
+  const demo = demoCheckbox.checked;
+  const { data } = await apiFetch(`/api/chart/stock?name=${encodeURIComponent(symbol)}&demo=${demo ? "1" : "0"}&period=${range}`);
+  if (data.candles) renderChartData(data);
+}
+
+async function loadIntradayChart(symbol) {
+  const demo = demoCheckbox.checked;
+  const { data } = await apiFetch(`/api/chart/stock/intraday?name=${encodeURIComponent(symbol)}&demo=${demo ? "1" : "0"}&interval=5m`);
+  if (data.candles) renderChartData(data);
+}
+
+document.querySelectorAll(".chart-range-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".chart-range-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentChartRange = btn.dataset.range;
+    document.getElementById("live-toggle-checkbox").checked = false;
+    stopLivePolling();
+    if (currentChartSymbol) loadDailyChart(currentChartSymbol, currentChartRange);
+  });
+});
+
+const liveToggleCheckbox = document.getElementById("live-toggle-checkbox");
+liveToggleCheckbox.addEventListener("change", async () => {
+  const label = liveToggleCheckbox.closest(".live-toggle");
+  if (liveToggleCheckbox.checked) {
+    const { data: status } = await apiFetch("/api/market-status");
+    updateMarketStatusBadge(status);
+    if (!status.is_open) {
+      alert("Market is currently closed (NSE hours: 9:15 AM - 3:30 PM IST, Mon-Fri). Live mode only polls during market hours.");
+      liveToggleCheckbox.checked = false;
+      return;
+    }
+    label.classList.add("live-active");
+    startLivePolling();
+  } else {
+    label.classList.remove("live-active");
+    stopLivePolling();
+    if (currentChartSymbol) loadDailyChart(currentChartSymbol, currentChartRange);
+  }
+});
+
+function startLivePolling() {
+  stopLivePolling();
+  if (!currentChartSymbol) return;
+  loadIntradayChart(currentChartSymbol);
+  // Poll every 60s - reasonable balance between "roughly live" and not hammering
+  // the free Yahoo Finance endpoint or your own server with requests.
+  liveIntervalHandle = setInterval(() => {
+    if (currentChartSymbol) loadIntradayChart(currentChartSymbol);
+  }, 60000);
+}
+
+function stopLivePolling() {
+  if (liveIntervalHandle) {
+    clearInterval(liveIntervalHandle);
+    liveIntervalHandle = null;
+  }
+}
+
+// Hook chart loading into the tab switcher - loads lazily the first time
+// the Chart tab is opened, rather than on every search, to avoid an
+// extra request when someone never looks at the chart.
+document.getElementById("tab-nav").addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab-btn");
+  if (btn && btn.dataset.tab === "chart" && currentChartSymbol) {
+    setTimeout(() => {
+      initChartIfNeeded();
+      if (priceChart) priceChart.applyOptions({ width: document.getElementById("candlestick-chart").clientWidth });
+      if (!liveToggleCheckbox.checked) loadDailyChart(currentChartSymbol, currentChartRange);
+    }, 50);
+  }
 });

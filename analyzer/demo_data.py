@@ -180,3 +180,52 @@ def demo_stock_news(name: str, limit: int = 6) -> list:
             "published": int((now - pd.Timedelta(days=days_ago)).timestamp()),
         })
     return items
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 additions: chart series (period/interval aware) + intraday demo
+# ---------------------------------------------------------------------------
+
+_PERIOD_TO_DAYS = {
+    "1mo": 30, "3mo": 90, "6mo": 182, "1y": 365, "2y": 730, "5y": 1825,
+}
+
+
+def demo_price_series(name: str, period: str = "6mo") -> pd.DataFrame:
+    """Same generator as demo_stock_history, just parameterized by period string."""
+    days = _PERIOD_TO_DAYS.get(period, 182)
+    return demo_stock_history(name, days=days)
+
+
+def demo_intraday_series(name: str, interval: str = "5m") -> pd.DataFrame:
+    """
+    Synthetic "today's session" candles, 9:15 AM - 3:30 PM IST, for
+    exercising the Live chart mode without needing real market hours
+    or a network connection.
+    """
+    seed = _seed_from_name(name)
+    rng = np.random.default_rng(seed + 7)
+
+    minutes_map = {"1m": 1, "5m": 5, "15m": 15}
+    step = minutes_map.get(interval, 5)
+    session_minutes = (15 * 60 + 30) - (9 * 60 + 15)  # 9:15 to 15:30
+    bars = session_minutes // step
+
+    today = pd.Timestamp.today().normalize()
+    start = today + pd.Timedelta(hours=9, minutes=15)
+    times = [start + pd.Timedelta(minutes=step * i) for i in range(bars)]
+
+    start_price = rng.uniform(200, 3500)
+    trend = rng.uniform(-0.0004, 0.0004)
+    vol = rng.uniform(0.002, 0.006)
+    returns = rng.normal(trend, vol, bars)
+    close = start_price * np.cumprod(1 + returns)
+    high = close * (1 + rng.uniform(0, 0.003, bars))
+    low = close * (1 - rng.uniform(0, 0.003, bars))
+    open_ = close * (1 + rng.normal(0, 0.001, bars))
+    volume = rng.integers(5_000, 80_000, bars)
+
+    return pd.DataFrame(
+        {"Open": open_, "High": high, "Low": low, "Close": close, "Volume": volume},
+        index=pd.DatetimeIndex(times),
+    )

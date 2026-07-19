@@ -192,3 +192,34 @@ def fetch_stock_news(ticker: str, limit: int = 10) -> list:
             items.append({"title": title, "publisher": publisher, "link": link, "published": published})
 
     return items
+
+
+# ---------------------------------------------------------------------------
+# CHART DATA (Phase 5) - flexible period/interval series for candlestick charts
+# ---------------------------------------------------------------------------
+
+def fetch_price_series(ticker: str, period: str = "6mo", interval: str = "1d") -> pd.DataFrame:
+    """
+    Lighter-weight than fetch_stock_data() - just OHLCV for a chosen
+    period/interval, without also pulling info/financials. Used by the
+    candlestick chart endpoint so switching date ranges doesn't re-fetch
+    everything.
+    """
+    resolved = resolve_indian_ticker(ticker)
+    yf_ticker = yf.Ticker(resolved)
+    return yf_ticker.history(period=period, interval=interval)
+
+
+def fetch_intraday_series(ticker: str, interval: str = "5m") -> pd.DataFrame:
+    """
+    Today's intraday candles for "live" chart mode.
+
+    HONESTY NOTE: Yahoo Finance's free intraday data is typically
+    delayed ~15-20 minutes, not true real-time tick data. yfinance also
+    restricts how far back fine intervals go (1m is last-7-days only,
+    for example). This is fine for a "roughly live" view during market
+    hours, but should never be sold to users as real-time.
+    """
+    resolved = resolve_indian_ticker(ticker)
+    yf_ticker = yf.Ticker(resolved)
+    return yf_ticker.history(period="1d", interval=interval)
