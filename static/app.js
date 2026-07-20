@@ -118,14 +118,15 @@ form.addEventListener("submit", async (e) => {
 });
 
 function setStatus(msg, isError = false) {
-  statusEl.textContent = msg;
-  statusEl.hidden = false;
   statusEl.classList.toggle("error", isError);
+  const spinnerHtml = isError ? "" : `<span class="spinner"></span>`;
+  statusEl.innerHTML = `${spinnerHtml}<span>${msg}</span>`;
+  statusEl.hidden = false;
 }
 
 function clearStatus() {
   statusEl.hidden = true;
-  statusEl.textContent = "";
+  statusEl.innerHTML = "";
 }
 
 // ---------------------------------------------------------------------------
